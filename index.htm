@@ -3374,7 +3374,8 @@
         coverFontFamilySelect.addEventListener('change', (e) => {
           const activeEl = activeTextElement;
           if (activeEl) {
-            activeEl.style.fontFamily = e.target.value;
+            // Add quotes to font family to ensure names with spaces (like 'Noto Naskh Arabic') work correctly
+            activeEl.style.fontFamily = `'${e.target.value}'`;
             debouncedSaveCoverState();
           }
         });
@@ -3423,7 +3424,19 @@
               backgroundColor: '#ffffff',
               removeContainer: true,
               imageTimeout: 0,
-              logging: false
+              logging: false,
+              onclone: (clonedDoc) => {
+                const content = clonedDoc.getElementById('cover-page');
+                // Fix for Arabic text spacing issues in html2canvas
+                if (content) {
+                  content.style.letterSpacing = 'normal';
+                  content.style.wordSpacing = 'normal';
+                  Array.from(content.querySelectorAll('*')).forEach(el => {
+                    el.style.letterSpacing = 'normal';
+                    el.style.wordSpacing = 'normal';
+                  });
+                }
+              }
             });
 
             // Restore
@@ -3665,6 +3678,13 @@
       const lang = typeof detectReportLanguage === 'function' ? detectReportLanguage(firstPart) : 'ar';
       const dir = lang === 'ar' ? 'rtl' : 'ltr';
 
+      // Extract title for filename
+      let title = "برغموت - تقرير";
+      if (typeof _extractTitleFromHTML === 'function') {
+        const extractedTitle = _extractTitleFromHTML(firstPart);
+        if (extractedTitle) title = extractedTitle;
+      }
+
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
         alert("يرجى السماح بالنوافذ المنبثقة");
@@ -3673,7 +3693,8 @@
 
       const doc = printWindow.document;
       doc.open();
-      doc.write('<!DOCTYPE html><html dir="' + dir + '" lang="' + lang + '"><head><meta charset="utf-8"><title>تصدير PDF</title>');
+      // Set the extracted title here so the saved PDF name matches
+      doc.write('<!DOCTYPE html><html dir="' + dir + '" lang="' + lang + '"><head><meta charset="utf-8"><title>' + title + '</title>');
       doc.write('<style>');
       doc.write('@media print {');
       doc.write('  @page { margin: 0; size: A4; }');
